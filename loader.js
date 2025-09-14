@@ -39,16 +39,26 @@ GetTranslationModule().then(() => {
     );
 
     for (const file of commands) {
-      const command = require(`./commands/${dirs}/${file}`);
-      if (command.name && command.description) {
-        commandsArray.push(command);
-        const txtEvent = `< -> > [Loaded Command] <${command.name.toLowerCase()}>`;
+      try {
+        const command = require(`./commands/${dirs}/${file}`);
+        
+        // Kiểm tra xem command có tồn tại và có thuộc tính name, description không
+        if (command && command.name && command.description) {
+          commandsArray.push(command);
+          const txtEvent = `< -> > [Loaded Command] <${command.name.toLowerCase()}>`;
+          parseLog(txtEvent);
+          client.commands.set(command.name.toLowerCase(), command);
+          delete require.cache[require.resolve(`./commands/${dirs}/${file}`)];
+        } else {
+          // Xử lý trường hợp command không hợp lệ
+          const txtEvent = `< -> > [Failed Command] <${file}> - Missing name or description`;
+          parseLog(txtEvent);
+        }
+      } catch (error) {
+        // Xử lý lỗi khi require file
+        const txtEvent = `< -> > [Error Loading Command] <${file}> - ${error.message}`;
         parseLog(txtEvent);
-        client.commands.set(command.name.toLowerCase(), command);
-        delete require.cache[require.resolve(`./commands/${dirs}/${file}`)];
-      } else {
-        const txtEvent = `< -> > [Failed Command] <${command.name.toLowerCase()}>`;
-        parseLog(txtEvent);}
+      }
     }
   });
 
