@@ -1,53 +1,61 @@
-const { EmbedBuilder, InteractionType } = require('discord.js');
-const { useQueue } = require('discord-player');
-const { Translate } = require('../../process_tools');
+// File: interactionCreate.js
+const { EmbedBuilder } = require('discord.js');
+const { useMainPlayer } = require('discord-player');
 
-module.exports = async (client, inter) => {
-    await inter.deferReply({ flags: 64 }); 
-    if (inter.type === InteractionType.ApplicationCommand) {
-        const DJ = client.config.opt.DJ;
-        const command = client.commands.get(inter.commandName);
-
-        const errorEmbed = new EmbedBuilder().setColor('#ff0000');
-
-        if (!command) {
-            errorEmbed.setDescription(await Translate('<❌> | Error! Please contact Developers!'));
-            inter.editReply({ embeds: [errorEmbed], ephemeral: true }); 
-            return client.slash.delete(inter.commandName);
-        }
-
-        if (command.permissions && !inter.member.permissions.has(command.permissions)) {
-            errorEmbed.setDescription(await Translate(`<❌> | You need do not have the proper permissions to exacute this command`));
-            return inter.editReply({ embeds: [errorEmbed], ephemeral: true }); 
-        }
-
-        if (DJ.enabled && DJ.commands.includes(command) && !inter.member._roles.includes(inter.guild.roles.cache.find(x => x.name === DJ.roleName).id)) {
-            errorEmbed.setDescription(await Translate(`<❌> | This command is reserved For members with <\`${DJ.roleName}\`> `));
-            return inter.editReply({ embeds: [errorEmbed], ephemeral: true }); 
-        }
-
-        if (command.voiceChannel) {
-            if (!inter.member.voice.channel) {
-                errorEmbed.setDescription(await Translate(`<❌> | You are not in a Voice Channel`));
-                return inter.editReply({ embeds: [errorEmbed], ephemeral: true }); 
-            }
-
-            if (inter.guild.members.me.voice.channel && inter.member.voice.channel.id !== inter.guild.members.me.voice.channel.id) {
-                errorEmbed.setDescription(await Translate(`<❌> | You are not in the same Voice Channel`));
-                return inter.editReply({ embeds: [errorEmbed], ephemeral: true }); 
-            }
-        }
-
-        command.execute({ inter, client });
-    } else if (inter.type === InteractionType.MessageComponent) {
-        const customId = inter.customId;
-        if (!customId) return;
-
-        const queue = useQueue(inter.guild);
-        const path = `../../buttons/${customId}.js`;
-
-        delete require.cache[require.resolve(path)];
-        const button = require(path);
-        if (button) return button({ client, inter, customId, queue });
+module.exports = async (client, interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+    
+    const command = client.commands.get(interaction.commandName);
+    if (!command) {
+        console.log(`❌ Command ${interaction.commandName} not found`);
+        return;
     }
-}
+
+    const player = useMainPlayer();
+
+    try {
+        console.log(`🔄 Processing command: ${interaction.commandName}`);
+
+        // KHÔNG defer ở đây - để command tự xử lý
+        await command.execute(client, interaction, player);
+        
+    } catch (error) {
+        console.error(`❌ Error executing command ${interaction.commandName}:`, error);
+        
+        try {
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#ff0000')
+                .setTitle('❌ Đã xảy ra lỗi!')
+                .setDescription(`Có lỗi khi thực hiện lệnh: \`${interaction.commandName}\``)
+                .addFields({
+                    name: 'Chi tiết lỗi:',
+                    value: `\`\`\`${error.message.slice(0, 1000)}\`\`\``
+                })
+                .setTimestamp();
+
+            // Kiểm tra trạng thái interaction một cách an toàn
+            if (interaction.deferred && !interaction.replied) {
+                // Nếu đã defer nhưng chưa reply
+                await interaction.editReply({ embeds: [errorEmbed] });
+            } else if (!interaction.replied && !interaction.deferred) {
+                // Nếu chưa reply và chưa defer
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            } else if (interaction.replied) {
+                // Nếu đã reply rồi, thì followUp
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            }
+            // Nếu không thể gửi theo cách nào, bỏ qua
+            
+        } catch (replyError) {
+            console.error('❌ Failed to send error message:', replyError);
+            // Thử gửi message đơn giản vào channel
+            try {
+                if (interaction.channel && interaction.channel.send) {
+                    await interaction.channel.send({ embeds: [errorEmbed] });
+                }
+            } catch (channelError) {
+                console.error('❌ Failed to send error to channel:', channelError);
+            }
+        }
+    }
+};
