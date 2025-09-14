@@ -62,7 +62,7 @@ GetTranslationModule().then(() => {
     }
   });
 
-  client.on("ready", (client) => {
+  client.on("clientReady", (client) => {
     if (client.config.app.global)
       client.application.commands.set(commandsArray);
     else
