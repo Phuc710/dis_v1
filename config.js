@@ -1,7 +1,7 @@
 module.exports = {
     app: {
         token: process.env.DISCORD_TOKEN || 'xxx',
-        playing: 'TFT With Phucx ❤️',
+        playing: 'TFT With You ❤️',
         prefix: '!',
         global: true,
         guild: process.env.GUILD_ID || 'xxx',
