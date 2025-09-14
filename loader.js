@@ -29,7 +29,7 @@ GetTranslationModule().then(() => {
     const PlayerEvent = require(`./events/Player/${file}`);
     const txtEvent = `< -> > [Loaded Player Event] <${file.split(".")[0]}>`;
     parseLog(txtEvent);
-    player.events.on(file.split(".")[0], PlayerEvent.bind(null));
+    player.events.on(file.split(".")[0], (...args) => PlayerEvent(...args));
     delete require.cache[require.resolve(`./events/Player/${file}`)];
   }
 
