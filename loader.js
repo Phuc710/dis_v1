@@ -21,7 +21,8 @@ GetTranslationModule().then(() => {
     const DiscordEvent = require(`./events/Discord/${file}`);
     const txtEvent = `< -> > [Loaded Discord Event] <${file.split(".")[0]}>`;
     parseLog(txtEvent);
-    client.on(file.split(".")[0], (...args) => DiscordEvent(client, ...args));
+    const eventName = file.split(".")[0] === 'ready' ? 'clientReady' : file.split(".")[0];
+    client.on(eventName, (...args) => DiscordEvent(client, ...args));
     delete require.cache[require.resolve(`./events/Discord/${file}`)];
   }
 

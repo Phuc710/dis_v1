@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-// Cải thiện encryption fix
 try {
     require('sodium-native');
     console.log('✅ Using sodium-native for encryption');
@@ -31,17 +30,14 @@ global.client = new Client({
 
 client.config = require('./config');
 
-// Player với improved settings
 const player = new Player(client, {
     skipFFmpeg: false,
-    // Cải thiện connection settings
     connectionTimeout: 30_000,
     leaveOnEnd: client.config.opt.leaveOnEnd,
     leaveOnEmpty: client.config.opt.leaveOnEmpty,
     leaveOnEmptyCooldown: client.config.opt.leaveOnEmptyCooldown,
     leaveOnEndCooldown: client.config.opt.leaveOnEndCooldown,
     bufferingTimeout: 5000,
-    // Improved ytdl options
     ytdlOptions: {
         quality: 'highestaudio',
         filter: 'audioonly',
@@ -55,10 +51,8 @@ const player = new Player(client, {
     }
 });
 
-// Improved error handling trước khi register extractor
 player.events.on('error', (queue, error) => {
     console.error(`[PLAYER ERROR]: ${error.message}`);
-    // Không crash bot khi có lỗi
     if (error.message.includes('No compatible encryption modes')) {
         console.log('🔧 Attempting to reconnect with different encryption...');
     }
@@ -68,7 +62,6 @@ player.events.on('playerError', (queue, error) => {
     console.error(`[PLAYER AUDIO ERROR]: ${error.message}`);
 });
 
-// Register extractor với error handling
 try {
     player.extractors.register(YoutubeiExtractor, {});
     console.log('✅ YoutubeiExtractor registered successfully');
@@ -76,7 +69,6 @@ try {
     console.error('❌ Failed to register YoutubeiExtractor:', error.message);
 }
 
-// Express server setup
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -101,13 +93,26 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-    res.json({
+    const health = {
         status: 'healthy',
         uptime: Math.floor(process.uptime()),
         memory: process.memoryUsage(),
         bot_ready: client.isReady(),
-        timestamp: new Date().toISOString()
-    });
+        bot_status: client.isReady() ? 'online' : 'connecting',
+        guilds: client.isReady() ? client.guilds.cache.size : 0,
+        timestamp: new Date().toISOString(),
+        version: '8.0.0'
+    };
+    
+    if (!client.isReady()) {
+        return res.status(503).json({
+            ...health,
+            status: 'unhealthy',
+            error: 'Bot is not ready'
+        });
+    }
+    
+    res.json(health);
 });
 
 app.get('/stats', (req, res) => {
@@ -134,18 +139,44 @@ app.get('/ping', (req, res) => {
     res.send('pong');
 });
 
-// Start server
+setInterval(() => {
+    if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_HOSTNAME) {
+        const https = require('https');
+        const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/health`;
+        
+        https.get(url, (res) => {
+            console.log(`Self-ping successful: ${res.statusCode}`);
+        }).on('error', (err) => {
+            console.error('Self-ping failed:', err.message);
+        });
+    }
+}, 840000);
+
+setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memUsageMB = {
+        rss: Math.round(memUsage.rss / 1024 / 1024),
+        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+        external: Math.round(memUsage.external / 1024 / 1024)
+    };
+    
+    console.log(`Memory usage: ${memUsageMB.heapUsed}MB / ${memUsageMB.heapTotal}MB`);
+    
+    if (memUsageMB.heapUsed > 400) {
+        console.warn('⚠️ High memory usage detected');
+    }
+}, 300000);
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Keep-alive server running on port ${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔊 Health check: http://localhost:${PORT}/health`);
     console.log(`📈 Stats: http://localhost:${PORT}/stats`);
 });
 
-// Load bot components
 console.clear();
 require('./loader');
 
-// Login với improved error handling
 client.login(client.config.app.token).catch(async (e) => {
     if (e.message === 'An invalid token was provided.') {
         require('./process_tools').throwConfigError('app', 'token', '\n\t   ❌ Invalid Token Provided! ❌ \n\tChange the token in the config file\n');
@@ -154,7 +185,6 @@ client.login(client.config.app.token).catch(async (e) => {
     }
 });
 
-// Graceful shutdown
 process.on('SIGINT', () => {
     console.log('🛑 Shutting down gracefully...');
     client.destroy();
@@ -167,15 +197,12 @@ process.on('SIGTERM', () => {
     process.exit(0);
 });
 
-// Handle unhandled rejections
 process.on('unhandledRejection', (error) => {
     console.error('Unhandled promise rejection:', error);
-    // Không crash bot
 });
 
 process.on('uncaughtException', (error) => {
     console.error('Uncaught exception:', error);
-    // Chỉ exit nếu là lỗi nghiêm trọng không phải encryption
     if (!error.message.includes('encryption')) {
         process.exit(1);
     }

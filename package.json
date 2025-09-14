@@ -3,37 +3,39 @@
     "main": "main.js",
     "author": "{Phucx}",
     "version": "8.0.0",
+    "license": "MIT",
     "repository": "https://github.com/phuc710/Music-bot.git",
     "description": "A complete code to download for a cool Discord music bot.",
+    "private": true,
     "scripts": {
         "start": "node main.js",
-        "dev": "nodemon main.js",
-        "postinstall": "node -e \"try{require('sodium-native')}catch{console.log('Installing sodium fallback...')}\""
+        "dev": "nodemon main.js"
     },
     "dependencies": {
-        "@discord-player/extractor": "^4.4.7",
-        "@discordjs/opus": "^0.9.0",
-        "@discordjs/voice": "^0.17.0",
-        "discord-player": "^6.7.1",
-        "discord-player-youtubei": "^1.3.1",
-        "discord.js": "^14.15.3",
-        "dotenv": "^16.4.5",
-        "express": "^4.19.2",
-        "ffmpeg-static": "^5.2.0",
-        "ms": "^3.0.0-canary.1",
-        "play-dl": "^1.9.7",
-        "translate": "^3.0.0",
-        "@google/generative-ai": "^0.2.1",
-        "sodium-native": "^4.1.1",
-        "libsodium-wrappers": "^0.7.13",
-        "tweetnacl": "^1.0.3",
-        "node-opus": "^0.3.3",
-        "opusscript": "^0.1.1"
+        "@discord-player/extractor": "latest",
+        "@discordjs/opus": "latest",
+        "@discordjs/voice": "latest",
+        "@google/generative-ai": "latest",
+        "discord-player": "latest",
+        "discord-player-youtubei": "latest",
+        "discord.js": "latest",
+        "dotenv": "latest",
+        "express": "latest",
+        "ffmpeg-static": "latest",
+        "libsodium-wrappers": "latest",
+        "mediaplex": "latest",
+        "ms": "latest",
+        "opusscript": "latest",
+        "play-dl": "latest",
+        "translate": "latest"
     },
     "optionalDependencies": {
-        "sodium": "^3.0.2"
+        "sodium-native": "latest"
     },
     "engines": {
         "node": ">=18.0.0"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.10"
     }
 }
