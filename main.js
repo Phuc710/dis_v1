@@ -1,5 +1,18 @@
 require('dotenv').config();
 
+// Cải thiện encryption fix
+try {
+    require('sodium-native');
+    console.log('✅ Using sodium-native for encryption');
+} catch {
+    try {
+        require('tweetnacl');
+        console.log('✅ Using tweetnacl for encryption');
+    } catch {
+        console.log('⚠️ No compatible encryption library found');
+    }
+}
+
 const { Player } = require('discord-player');
 const { Client, GatewayIntentBits } = require('discord.js');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
@@ -18,17 +31,57 @@ global.client = new Client({
 
 client.config = require('./config');
 
-const player = new Player(client, client.config.opt.discordPlayer);
-player.extractors.register(YoutubeiExtractor, {});
+// Player với improved settings
+const player = new Player(client, {
+    skipFFmpeg: false,
+    // Cải thiện connection settings
+    connectionTimeout: 30_000,
+    leaveOnEnd: client.config.opt.leaveOnEnd,
+    leaveOnEmpty: client.config.opt.leaveOnEmpty,
+    leaveOnEmptyCooldown: client.config.opt.leaveOnEmptyCooldown,
+    leaveOnEndCooldown: client.config.opt.leaveOnEndCooldown,
+    bufferingTimeout: 5000,
+    // Improved ytdl options
+    ytdlOptions: {
+        quality: 'highestaudio',
+        filter: 'audioonly',
+        highWaterMark: 1 << 25,
+        dlChunkSize: 0,
+        requestOptions: {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        }
+    }
+});
 
-// Tạo Express server cho keep-alive
+// Improved error handling trước khi register extractor
+player.events.on('error', (queue, error) => {
+    console.error(`[PLAYER ERROR]: ${error.message}`);
+    // Không crash bot khi có lỗi
+    if (error.message.includes('No compatible encryption modes')) {
+        console.log('🔧 Attempting to reconnect with different encryption...');
+    }
+});
+
+player.events.on('playerError', (queue, error) => {
+    console.error(`[PLAYER AUDIO ERROR]: ${error.message}`);
+});
+
+// Register extractor với error handling
+try {
+    player.extractors.register(YoutubeiExtractor, {});
+    console.log('✅ YoutubeiExtractor registered successfully');
+} catch (error) {
+    console.error('❌ Failed to register YoutubeiExtractor:', error.message);
+}
+
+// Express server setup
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(express.json());
 
-// Routes
 app.get('/', (req, res) => {
     res.json({
         status: '🎵 Discord Music Bot is Running!',
@@ -39,6 +92,10 @@ app.get('/', (req, res) => {
             username: client.user ? client.user.username : 'Not logged in',
             guilds: client.guilds ? client.guilds.cache.size : 0,
             ready: client.isReady()
+        },
+        encryption: {
+            sodium: (() => { try { require('sodium-native'); return true; } catch { return false; } })(),
+            tweetnacl: (() => { try { require('tweetnacl'); return true; } catch { return false; } })()
         }
     });
 });
@@ -73,7 +130,6 @@ app.get('/stats', (req, res) => {
     });
 });
 
-// Keep-alive endpoint for UptimeRobot hoặc cron jobs
 app.get('/ping', (req, res) => {
     res.send('pong');
 });
@@ -85,10 +141,11 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📈 Stats: http://localhost:${PORT}/stats`);
 });
 
-// Load bot
+// Load bot components
 console.clear();
 require('./loader');
 
+// Login với improved error handling
 client.login(client.config.app.token).catch(async (e) => {
     if (e.message === 'An invalid token was provided.') {
         require('./process_tools').throwConfigError('app', 'token', '\n\t   ❌ Invalid Token Provided! ❌ \n\tChange the token in the config file\n');
@@ -97,7 +154,7 @@ client.login(client.config.app.token).catch(async (e) => {
     }
 });
 
-// Handle process termination
+// Graceful shutdown
 process.on('SIGINT', () => {
     console.log('🛑 Shutting down gracefully...');
     client.destroy();
@@ -108,4 +165,18 @@ process.on('SIGTERM', () => {
     console.log('🛑 Shutting down gracefully...');
     client.destroy();
     process.exit(0);
+});
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (error) => {
+    console.error('Unhandled promise rejection:', error);
+    // Không crash bot
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+    // Chỉ exit nếu là lỗi nghiêm trọng không phải encryption
+    if (!error.message.includes('encryption')) {
+        process.exit(1);
+    }
 });

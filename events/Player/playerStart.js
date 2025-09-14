@@ -19,7 +19,7 @@ module.exports = (queue, track) => {
         ),
         iconURL: track.thumbnail,
       })
-      .setColor("#0048ffff");
+      .setColor("0048ff");
 
     const back = new ButtonBuilder()
       .setLabel(EmojiState ? emojis.back : ('Back'))
